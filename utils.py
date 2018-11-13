@@ -118,7 +118,7 @@ class OutputScale(layers.Layer):
         pass
 
     def call(self, x, mask=None):
-        return x * 150 + 255.0 / 2
+        return x * 150
 
     def compute_output_shape(self, input_shape):
         return input_shape

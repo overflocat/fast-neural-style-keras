@@ -28,14 +28,15 @@ def get_training_model(width, height, bs=1):
 
     d1 = layers.Conv2DTranspose(64, (3, 3), strides=2, padding='same', name='conv_4')(r5)
     d1 = layers.BatchNormalization(name='normal_4')(d1)
-    d1 = layers.Activation('relu')(d1)
+    d1 = layers.Activation('relu', name='relu_4')(d1)
 
     d2 = layers.Conv2DTranspose(32, (3, 3), strides=2, padding='same', name='conv_5')(d1)
     d2 = layers.BatchNormalization(name='normal_5')(d2)
-    d2 = layers.Activation('relu')(d2)
+    d2 = layers.Activation('relu', name='relu_5')(d2)
 
     c4 = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='conv_6')(d2)
     c4 = layers.BatchNormalization(name='normal_6')(c4)
+    c4 = layers.Activation('tanh', name='tanh_1')(c4)
     c4 = OutputScale(name='output')(c4)
 
     content_activation = layers.Input(shape=(height//2, width//2, 128), dtype='float32')
@@ -124,14 +125,15 @@ def get_evaluate_model(width, height):
 
     d1 = layers.Conv2DTranspose(64, (3, 3), strides=2, padding='same', name='conv_4')(r5)
     d1 = layers.BatchNormalization(name='normal_4')(d1)
-    d1 = layers.Activation('relu')(d1)
+    d1 = layers.Activation('relu', name='relu_4')(d1)
 
     d2 = layers.Conv2DTranspose(32, (3, 3), strides=2, padding='same', name='conv_5')(d1)
     d2 = layers.BatchNormalization(name='normal_5')(d2)
-    d2 = layers.Activation('relu')(d2)
+    d2 = layers.Activation('relu', name='relu_5')(d2)
 
     c4 = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='conv_6')(d2)
     c4 = layers.BatchNormalization(name='normal_6')(c4)
+    c4 = layers.Activation('tanh', name='tanh_1')(c4)
     c4 = OutputScale(name='output')(c4)
 
     model = Model([input_o], c4)

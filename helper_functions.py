@@ -128,7 +128,7 @@ def train(options):
             break
 
     t_total_2 = time.time()
-    print("Training ended. Time used: " + str(datetime.timedelta(seconds=(t_total_2-t_total_1))))
+    print("Training ended. Time used: " + str(datetime.timedelta(seconds=int(t_total_2-t_total_1))))
 
     # Saving models
     print("Saving models...")
@@ -139,7 +139,7 @@ def train(options):
             print(layer.name)
             layer.set_weights(training_model_layers[layer.name].get_weights())
 
-    model_eval.save_weights(options["weights_save_path"] + 'wave_weights.h5')
+    model_eval.save_weights(options["weights_save_path"] + '%s_weights.h5' % options["net_name"])
 
 
 def temp_view(options, img_read_path, img_write_path, iters):
@@ -168,7 +168,7 @@ def temp_view(options, img_read_path, img_write_path, iters):
     training_model = get_temp_view_model(width, height)
     training_model.compile(loss={'content': dummy_loss, 'style1': dummy_loss, 'style2': dummy_loss,
                                  'style3': dummy_loss, 'style4': dummy_loss, 'tv': dummy_loss, 'output': zero_loss},
-                           optimizer=optimizers.Adam(lr=1, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0),
+                           optimizer=optimizers.Adam(lr=1),
                            loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
 
     # If flag is set, print model summary and generate model description

@@ -1,0 +1,31 @@
+{
+  "net_name": "udnie",
+
+  "learning_rate": 1e-3,
+  "content_weight": 400,
+  "style_weight": 0.1,
+  "total_variation_weight": 2,
+
+  "train_image_height": 256,
+  "train_image_width": 256,
+
+  "plot_model": false,
+
+  "content_layer": "block2_conv2",
+  "style_layer": ["block1_conv2", "block2_conv2", "block3_conv3", "block4_conv3"],
+
+  "style_image_path": "./examples/style_img/udnie.jpg",
+  "train_image_path": "../data",
+  "test": true,
+  "test_image_path": "./examples/content_img/content_2.png",
+  "test_res_save_path": "./test_results/udnie/",
+
+  "batch_size": 4,
+  "steps_per_epoch": 20000,
+  "epochs": 2,
+  "test_iter": 50,
+  "view_iter": 10,
+
+  "weights_save_path": "./trained_nets/",
+  "weights_read_path": "./trained_nets/udnie_weights.h5"
+}

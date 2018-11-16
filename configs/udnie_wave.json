@@ -17,7 +17,6 @@
   "style_image_path": "./examples/style_img/wave.png",
   "style_image_path_2": "./examples/style_img/udnie.jpg",
   "train_image_path": "../data",
-  "test": true,
   "test_image_path": "./examples/content_img/content_2.png",
   "test_res_save_path": "./test_results/wave_udnie/",
 

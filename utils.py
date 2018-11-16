@@ -124,6 +124,21 @@ class OutputScale(layers.Layer):
         return input_shape
 
 
+class AverageAddTwo(layers.Layer):
+
+    def __init__(self, **kwargs):
+        super(AverageAddTwo, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, mask=None):
+        return x[0] / 2 + x[1] / 2
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
 class InputReflect(layers.Layer):
 
     def __init__(self, width, height, **kwargs):

@@ -2,10 +2,11 @@ from keras import layers
 from keras.applications import vgg16
 from keras.models import Model
 
-from utils import get_style_loss, get_content_loss, get_tv_loss, residual_block, OutputScale, InputReflect
+from utils import get_style_loss, get_content_loss, get_tv_loss, \
+    residual_block, OutputScale, InputReflect, AverageAddTwo
 
 
-def get_training_model(width, height, bs=1):
+def get_training_model(width, height, bs=1, bi_style=False):
     input_o = layers.Input(shape=(height, width, 3), dtype='float32', name='input_o')
 
     c1 = layers.Conv2D(32, (9, 9), strides=1, padding='same', name='conv_1')(input_o)
@@ -39,11 +40,17 @@ def get_training_model(width, height, bs=1):
     c4 = layers.Activation('tanh', name='tanh_1')(c4)
     c4 = OutputScale(name='output')(c4)
 
-    content_activation = layers.Input(shape=(height//2, width//2, 128), dtype='float32')
+    content_activation = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
     style_activation1 = layers.Input(shape=(height, width, 64), dtype='float32')
-    style_activation2 = layers.Input(shape=(height//2, width//2, 128), dtype='float32')
-    style_activation3 = layers.Input(shape=(height//4, width//4, 256), dtype='float32')
-    style_activation4 = layers.Input(shape=(height//8, width//8, 512), dtype='float32')
+    style_activation2 = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
+    style_activation3 = layers.Input(shape=(height // 4, width // 4, 256), dtype='float32')
+    style_activation4 = layers.Input(shape=(height // 8, width // 8, 512), dtype='float32')
+
+    if bi_style:
+        style_activation1_2 = layers.Input(shape=(height, width, 64), dtype='float32')
+        style_activation2_2 = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
+        style_activation3_2 = layers.Input(shape=(height // 4, width // 4, 256), dtype='float32')
+        style_activation4_2 = layers.Input(shape=(height // 8, width // 8, 512), dtype='float32')
 
     total_variation_loss = layers.Lambda(get_tv_loss, output_shape=(1,), name='tv',
                                          arguments={'width': width, 'height': height})([c4])
@@ -53,6 +60,10 @@ def get_training_model(width, height, bs=1):
     x = layers.Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2')(x)
     style_loss1 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style1', arguments={'batch_size': bs})([x, style_activation1])
+    if bi_style:
+        style_loss1_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                    name='style1_2', arguments={'batch_size': bs})([x, style_activation1_2])
+        style_loss1 = AverageAddTwo(name='style1_out')([style_loss1, style_loss1_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
 
     # Block 2
@@ -61,6 +72,10 @@ def get_training_model(width, height, bs=1):
     content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss2 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style2', arguments={'batch_size': bs})([x, style_activation2])
+    if bi_style:
+        style_loss2_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                    name='style2_2', arguments={'batch_size': bs})([x, style_activation2_2])
+        style_loss2 = AverageAddTwo(name='style2_out')([style_loss2, style_loss2_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
 
     # Block 3
@@ -69,6 +84,10 @@ def get_training_model(width, height, bs=1):
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
     style_loss3 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style3', arguments={'batch_size': bs})([x, style_activation3])
+    if bi_style:
+        style_loss3_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                    name='style3_2', arguments={'batch_size': bs})([x, style_activation3_2])
+        style_loss3 = AverageAddTwo(name='style3_out')([style_loss3, style_loss3_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
 
     # Block 4
@@ -77,6 +96,10 @@ def get_training_model(width, height, bs=1):
     x = layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
     style_loss4 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style4', arguments={'batch_size': bs})([x, style_activation4])
+    if bi_style:
+        style_loss4_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                    name='style4_2', arguments={'batch_size': bs})([x, style_activation4_2])
+        style_loss4 = AverageAddTwo(name='style4_out')([style_loss4, style_loss4_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
 
     # Block 5
@@ -85,9 +108,15 @@ def get_training_model(width, height, bs=1):
     x = layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
 
-    model = Model(
-        [input_o, content_activation, style_activation1, style_activation2, style_activation3, style_activation4],
-        [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, c4])
+    if bi_style:
+        model = Model(
+            [input_o, content_activation, style_activation1, style_activation2, style_activation3, style_activation4,
+             style_activation1_2, style_activation2_2, style_activation3_2, style_activation4_2],
+            [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, c4])
+    else:
+        model = Model(
+            [input_o, content_activation, style_activation1, style_activation2, style_activation3, style_activation4],
+            [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, c4])
     model_layers = {layer.name: layer for layer in model.layers}
     original_vgg = vgg16.VGG16(weights='imagenet', include_top=False)
     original_vgg_layers = {layer.name: layer for layer in original_vgg.layers}
@@ -141,7 +170,7 @@ def get_evaluate_model(width, height):
     return model
 
 
-def get_temp_view_model(width, height, bs=1):
+def get_temp_view_model(width, height, bs=1, bi_style=False):
     input_o = layers.Input(shape=(height, width, 3), dtype='float32')
 
     y = InputReflect(width, height, name='output')(input_o)
@@ -154,10 +183,21 @@ def get_temp_view_model(width, height, bs=1):
     style_activation3 = layers.Input(shape=(height//4, width//4, 256), dtype='float32')
     style_activation4 = layers.Input(shape=(height//8, width//8, 512), dtype='float32')
 
+    if bi_style:
+        style_activation1_2 = layers.Input(shape=(height, width, 64), dtype='float32')
+        style_activation2_2 = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
+        style_activation3_2 = layers.Input(shape=(height // 4, width // 4, 256), dtype='float32')
+        style_activation4_2 = layers.Input(shape=(height // 8, width // 8, 512), dtype='float32')
+
+    # Block 1
     x = layers.Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1')(y)
     x = layers.Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2')(x)
     style_loss1 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style1', arguments={'batch_size': bs})([x, style_activation1])
+    if bi_style:
+        style_loss1_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                      name='style1_2', arguments={'batch_size': bs})([x, style_activation1_2])
+        style_loss1 = AverageAddTwo(name='style1_out')([style_loss1, style_loss1_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
 
     # Block 2
@@ -166,6 +206,10 @@ def get_temp_view_model(width, height, bs=1):
     content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss2 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style2', arguments={'batch_size': bs})([x, style_activation2])
+    if bi_style:
+        style_loss2_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                      name='style2_2', arguments={'batch_size': bs})([x, style_activation2_2])
+        style_loss2 = AverageAddTwo(name='style2_out')([style_loss2, style_loss2_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
 
     # Block 3
@@ -174,6 +218,10 @@ def get_temp_view_model(width, height, bs=1):
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
     style_loss3 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style3', arguments={'batch_size': bs})([x, style_activation3])
+    if bi_style:
+        style_loss3_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                      name='style3_2', arguments={'batch_size': bs})([x, style_activation3_2])
+        style_loss3 = AverageAddTwo(name='style3_out')([style_loss3, style_loss3_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
 
     # Block 4
@@ -182,6 +230,10 @@ def get_temp_view_model(width, height, bs=1):
     x = layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
     style_loss4 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style4', arguments={'batch_size': bs})([x, style_activation4])
+    if bi_style:
+        style_loss4_2 = layers.Lambda(get_style_loss, output_shape=(1,),
+                                      name='style4_2', arguments={'batch_size': bs})([x, style_activation4_2])
+        style_loss4 = AverageAddTwo(name='style4_out')([style_loss4, style_loss4_2])
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
 
     # Block 5
@@ -190,9 +242,17 @@ def get_temp_view_model(width, height, bs=1):
     x = layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
     x = layers.MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
 
-    model = Model(
-        [input_o, content_activation, style_activation1, style_activation2, style_activation3, style_activation4],
-        [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, y])
+    if bi_style:
+        model = Model(
+            [input_o, content_activation, style_activation1, style_activation2, style_activation3,
+             style_activation4,
+             style_activation1_2, style_activation2_2, style_activation3_2, style_activation4_2],
+            [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, y])
+    else:
+        model = Model(
+            [input_o, content_activation, style_activation1, style_activation2, style_activation3,
+             style_activation4],
+            [content_loss, style_loss1, style_loss2, style_loss3, style_loss4, total_variation_loss, y])
     model_layers = {layer.name: layer for layer in model.layers}
     original_vgg = vgg16.VGG16(weights='imagenet', include_top=False)
     original_vgg_layers = {layer.name: layer for layer in original_vgg.layers}

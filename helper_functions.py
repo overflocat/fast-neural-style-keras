@@ -25,6 +25,14 @@ def train(options):
         style_act = expand_input(options["batch_size"], func([style_tensor])[0])
         style_acts.append(style_act)
 
+    if "style_image_path_2" in options:
+        style_tensor_2 = process_image(options["style_image_path_2"], width, height)
+        style_acts_2 = list()
+        for layer_name in options["style_layer"]:
+            func = get_vgg_activation(layer_name, width, height)
+            style_act_2 = expand_input(options["batch_size"], func([style_tensor_2])[0])
+            style_acts_2.append(style_act_2)
+
     # Get content activations for test_image
     content_test = process_image(options["test_image_path"], width, height)
     content_func = get_vgg_activation(options["content_layer"], width, height)
@@ -37,11 +45,21 @@ def train(options):
     tv_w = options["total_variation_weight"]
 
     # Get training model
-    training_model = get_training_model(width, height, bs=options['batch_size'])
-    training_model.compile(loss={'content': dummy_loss, 'style1': dummy_loss, 'style2': dummy_loss,
-                                 'style3': dummy_loss, 'style4': dummy_loss, 'tv': dummy_loss, 'output': zero_loss},
-                           optimizer=optimizers.Adam(lr=options["learning_rate"]),
-                           loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
+    bi_style = False
+    if "style_image_path_2" in options:
+        bi_style = True
+    training_model = get_training_model(width, height, bs=options['batch_size'], bi_style=bi_style)
+    if bi_style:
+        training_model.compile(loss={'content': dummy_loss, 'style1_out': dummy_loss, 'style2_out': dummy_loss,
+                                     'style3_out': dummy_loss, 'style4_out': dummy_loss, 'tv': dummy_loss,
+                                     'output': zero_loss},
+                               optimizer=optimizers.Adam(lr=options["learning_rate"]),
+                               loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
+    else:
+        training_model.compile(loss={'content': dummy_loss, 'style1': dummy_loss, 'style2': dummy_loss,
+                                     'style3': dummy_loss, 'style4': dummy_loss, 'tv': dummy_loss, 'output': zero_loss},
+                               optimizer=optimizers.Adam(lr=options["learning_rate"]),
+                               loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
 
     # If flag is set, print model summary and generate model description
     if options["plot_model"]:
@@ -91,9 +109,17 @@ def train(options):
                 t1 = time.time()
                 x = vgg16.preprocess_input(x)
                 content_act = content_func([x])[0]
-                res = training_model.fit([x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3]],
-                                         [dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, x],
-                                         epochs=1, verbose=0, batch_size=options["batch_size"])
+                if bi_style:
+                    res = training_model.fit([x, content_act, style_acts[0], style_acts[1], style_acts[2],
+                                              style_acts[3], style_acts_2[0], style_acts_2[1], style_acts_2[2],
+                                              style_acts_2[3]], [dummy_in, dummy_in, dummy_in, dummy_in, dummy_in,
+                                                                 dummy_in, x],
+                                             epochs=1, verbose=0, batch_size=options["batch_size"])
+                else:
+                    res = training_model.fit([x, content_act, style_acts[0], style_acts[1], style_acts[2],
+                                              style_acts[3]], [dummy_in, dummy_in, dummy_in, dummy_in, dummy_in,
+                                                               dummy_in, x],
+                                             epochs=1, verbose=0, batch_size=options["batch_size"])
                 t2 = time.time()
                 t_sum += t2 - t1
 
@@ -109,8 +135,13 @@ def train(options):
                     t_sum = 0.0
 
                 if iters % options["test_iter"] == 0:
-                    res = training_model.predict([content_test, content_act_test, style_acts[0], style_acts[1],
-                                                  style_acts[2], style_acts[3]])
+                    if bi_style:
+                        res = training_model.predict([content_test, content_act_test, style_acts[0], style_acts[1],
+                                                      style_acts[2], style_acts[3], style_acts_2[0], style_acts_2[1],
+                                                      style_acts_2[2], style_acts_2[3]])
+                    else:
+                        res = training_model.predict([content_test, content_act_test, style_acts[0], style_acts[1],
+                                                      style_acts[2], style_acts[3]])
                     c_loss = print_test_results(res, iters, c_loss)
 
                     output = deprocess_image(res[6][0], width, height)
@@ -154,6 +185,14 @@ def temp_view(options, img_read_path, img_write_path, iters):
         style_act = func([style_tensor])[0]
         style_acts.append(style_act)
 
+    if "style_image_path_2" in options:
+        style_tensor_2 = process_image(options["style_image_path_2"], width, height)
+        style_acts_2 = list()
+        for layer_name in options["style_layer"]:
+            func = get_vgg_activation(layer_name, width, height)
+            style_act_2 = func([style_tensor_2])[0]
+            style_acts_2.append(style_act_2)
+
     # Get content activations
     content_tensor = K.variable(process_image(img_read_path, width, height))
     func = get_vgg_activation(options["content_layer"], width, height)
@@ -164,12 +203,22 @@ def temp_view(options, img_read_path, img_write_path, iters):
     content_w = options["content_weight"]
     tv_w = options["total_variation_weight"]
 
-    # Style_layers can not be changed, need to be fixed
-    training_model = get_temp_view_model(width, height)
-    training_model.compile(loss={'content': dummy_loss, 'style1': dummy_loss, 'style2': dummy_loss,
-                                 'style3': dummy_loss, 'style4': dummy_loss, 'tv': dummy_loss, 'output': zero_loss},
-                           optimizer=optimizers.Adam(lr=1),
-                           loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
+    # Get training model
+    bi_style = False
+    if "style_image_path_2" in options:
+        bi_style = True
+    training_model = get_temp_view_model(width, height, bi_style=bi_style)
+    if bi_style:
+        training_model.compile(loss={'content': dummy_loss, 'style1_out': dummy_loss, 'style2_out': dummy_loss,
+                                     'style3_out': dummy_loss, 'style4_out': dummy_loss, 'tv': dummy_loss,
+                                     'output': zero_loss},
+                               optimizer=optimizers.Adam(lr=1),
+                               loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
+    else:
+        training_model.compile(loss={'content': dummy_loss, 'style1': dummy_loss, 'style2': dummy_loss,
+                                     'style3': dummy_loss, 'style4': dummy_loss, 'tv': dummy_loss, 'output': zero_loss},
+                               optimizer=optimizers.Adam(lr=1),
+                               loss_weights=[content_w, style_w, style_w, style_w, style_w, tv_w, 0])
 
     # If flag is set, print model summary and generate model description
     if options["plot_model"]:
@@ -184,7 +233,14 @@ def temp_view(options, img_read_path, img_write_path, iters):
     for i in range(iters):
         t1 = time.time()
 
-        res = training_model.fit([x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3]],
+        if bi_style:
+            res = training_model.fit(
+                [x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3], style_acts_2[0],
+                 style_acts_2[1], style_acts_2[2], style_acts_2[3]],
+                [dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, x],
+                epochs=1, verbose=0, batch_size=1)
+        else:
+            res = training_model.fit([x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3]],
                                  [dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, dummy_in, x],
                                  epochs=1, verbose=0, batch_size=1)
 
@@ -199,16 +255,31 @@ def temp_view(options, img_read_path, img_write_path, iters):
 
             print("Iter: %d / %d, Time elapsed: %0.2f seconds, Loss: %.0f, Improvement: %0.2f percent." %
                   (i, iters, t2-t1, loss, improvement))
-            print("Detail: content_loss: %0.0f, style_loss_1: %0.0f, style_loss_2: %0.0f,"
-                  " style_loss_3: %0.0f, style_loss_4: %0.0f, tv_loss: %0.0f"
-                  % (float(res.history['content_loss'][0]) * content_w,
-                     float(res.history['style1_loss'][0]) * style_w,
-                     float(res.history['style2_loss'][0]) * style_w,
-                     float(res.history['style3_loss'][0]) * style_w,
-                     float(res.history['style4_loss'][0]) * style_w,
-                     float(res.history['tv_loss'][0]) * tv_w))
+            if bi_style:
+                print("Detail: content_loss: %0.0f, style_loss_1: %0.0f, style_loss_2: %0.0f,"
+                      " style_loss_3: %0.0f, style_loss_4: %0.0f, tv_loss: %0.0f"
+                      % (float(res.history['content_loss'][0]) * content_w,
+                         float(res.history['style1_out_loss'][0]) * style_w,
+                         float(res.history['style2_out_loss'][0]) * style_w,
+                         float(res.history['style3_out_loss'][0]) * style_w,
+                         float(res.history['style4_out_loss'][0]) * style_w,
+                         float(res.history['tv_loss'][0]) * tv_w))
+            else:
+                print("Detail: content_loss: %0.0f, style_loss_1: %0.0f, style_loss_2: %0.0f,"
+                      " style_loss_3: %0.0f, style_loss_4: %0.0f, tv_loss: %0.0f"
+                      % (float(res.history['content_loss'][0]) * content_w,
+                         float(res.history['style1_loss'][0]) * style_w,
+                         float(res.history['style2_loss'][0]) * style_w,
+                         float(res.history['style3_loss'][0]) * style_w,
+                         float(res.history['style4_loss'][0]) * style_w,
+                         float(res.history['tv_loss'][0]) * tv_w))
 
-    res = training_model.predict([x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3]])
+    if bi_style:
+        res = training_model.predict(
+            [x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3], style_acts_2[0],
+             style_acts_2[1], style_acts_2[2], style_acts_2[3]])
+    else:
+        res = training_model.predict([x, content_act, style_acts[0], style_acts[1], style_acts[2], style_acts[3]])
     output = deprocess_image(res[6][0], width, height)
     imsave(img_write_path, output)
 
@@ -233,6 +304,3 @@ def predict(options, img_read_path, img_write_path):
     res = eval_model.predict([content])
     output = deprocess_image(res[0], width, height)
     imsave(img_write_path, output)
-
-
-

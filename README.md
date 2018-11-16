@@ -1,7 +1,7 @@
 For training the network:
 
 ```
-python main.py -c ./configs/wave.json -m train -i
+python main.py -c ./configs/wave.json -m train
 ```
 
 For predicting:

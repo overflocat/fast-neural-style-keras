@@ -18,7 +18,7 @@
   "style_image_path_2": "./examples/style_img/udnie.jpg",
   "train_image_path": "../data",
   "test_image_path": "./examples/content_img/content_2.png",
-  "test_res_save_path": "./test_results/wave_udnie/",
+  "test_res_save_path": "./test_results/udnie_wave/",
 
   "batch_size": 4,
   "steps_per_epoch": 20000,

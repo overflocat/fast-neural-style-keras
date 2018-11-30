@@ -11,7 +11,7 @@
 
   "plot_model": false,
 
-  "content_layer": "block2_conv2",
+  "content_layer": "block3_conv3",
   "style_layer": ["block1_conv2", "block2_conv2", "block3_conv3", "block4_conv3"],
 
   "style_image_path": "./examples/style_img/wave.png",

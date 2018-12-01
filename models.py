@@ -40,7 +40,7 @@ def get_training_model(width, height, bs=1, bi_style=False):
     c4 = layers.Activation('tanh', name='tanh_1')(c4)
     c4 = OutputScale(name='output')(c4)
 
-    content_activation = layers.Input(shape=(height // 4, width // 4, 256), dtype='float32')
+    content_activation = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
     style_activation1 = layers.Input(shape=(height, width, 64), dtype='float32')
     style_activation2 = layers.Input(shape=(height // 2, width // 2, 128), dtype='float32')
     style_activation3 = layers.Input(shape=(height // 4, width // 4, 256), dtype='float32')
@@ -69,6 +69,7 @@ def get_training_model(width, height, bs=1, bi_style=False):
     # Block 2
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
+    content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss2 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style2', arguments={'batch_size': bs})([x, style_activation2])
     if bi_style:
@@ -81,7 +82,6 @@ def get_training_model(width, height, bs=1, bi_style=False):
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
-    content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss3 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style3', arguments={'batch_size': bs})([x, style_activation3])
     if bi_style:
@@ -177,7 +177,7 @@ def get_temp_view_model(width, height, bs=1, bi_style=False):
     total_variation_loss = layers.Lambda(get_tv_loss, output_shape=(1,), name='tv',
                                          arguments={'width': width, 'height': height})([y])
 
-    content_activation = layers.Input(shape=(height//4, width//4, 256), dtype='float32')
+    content_activation = layers.Input(shape=(height//2, width//2, 128), dtype='float32')
     style_activation1 = layers.Input(shape=(height, width, 64), dtype='float32')
     style_activation2 = layers.Input(shape=(height//2, width//2, 128), dtype='float32')
     style_activation3 = layers.Input(shape=(height//4, width//4, 256), dtype='float32')
@@ -203,6 +203,7 @@ def get_temp_view_model(width, height, bs=1, bi_style=False):
     # Block 2
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
     x = layers.Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
+    content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss2 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style2', arguments={'batch_size': bs})([x, style_activation2])
     if bi_style:
@@ -215,7 +216,6 @@ def get_temp_view_model(width, height, bs=1, bi_style=False):
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
     x = layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
-    content_loss = layers.Lambda(get_content_loss, output_shape=(1,), name='content')([x, content_activation])
     style_loss3 = layers.Lambda(get_style_loss, output_shape=(1,),
                                 name='style3', arguments={'batch_size': bs})([x, style_activation3])
     if bi_style:

@@ -6,8 +6,8 @@
   "style_weight": 0.1,
   "total_variation_weight": 2,
 
-  "train_image_height": 300,
-  "train_image_width": 400,
+  "train_image_height": 256,
+  "train_image_width": 256,
 
   "plot_model": false,
 

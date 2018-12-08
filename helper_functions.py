@@ -6,6 +6,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.applications import vgg16
 
 from utils import process_image, expand_input, get_vgg_activation, dummy_loss, zero_loss, deprocess_image
+from utils import get_padding, remove_padding
 from models import get_temp_view_model, get_training_model, get_evaluate_model
 from scipy.misc import imsave
 
@@ -287,7 +288,11 @@ def temp_view(options, img_read_path, img_write_path, iters):
 def predict(options, img_read_path, img_write_path):
     # Read image
     content = process_image(img_read_path, -1, -1, resize=False)
+    ori_height = content.shape[1]
+    ori_width = content.shape[2]
 
+    # Pad image
+    content = get_padding(content)
     height = content.shape[1]
     width = content.shape[2]
 
@@ -303,4 +308,5 @@ def predict(options, img_read_path, img_write_path):
     # Generate output and save image
     res = eval_model.predict([content])
     output = deprocess_image(res[0], width, height)
+    output = remove_padding(output, ori_height, ori_width)
     imsave(img_write_path, output)

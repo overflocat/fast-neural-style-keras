@@ -71,7 +71,3 @@ Here is the explanation for parameters in config files:
 ## Performance
 
 It takes about 8 hours to train a network on a Nvidia K80 GPU. After training, predicting will be really fast and only use less than one second.
-
-## Something important
-
-The height and width of the input image must be divisible by 8.

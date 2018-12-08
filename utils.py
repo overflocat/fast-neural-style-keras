@@ -42,6 +42,27 @@ def expand_input(batch_size, input_o):
     return expanded_input
 
 
+def get_padding(image, axis_expanded=True):
+    height = image.shape[1]
+    width = image.shape[2]
+
+    pad_height = (height//8 + 1) * 8 - height
+    pad_width = (width//8 + 1) * 8 - width
+
+    if axis_expanded:
+        padding = (0, 0), (0, pad_height), (0, pad_width), (0, 0)
+    else:
+        padding = ((0, pad_height), (0, pad_width), (0, 0))
+
+    new_image = np.pad(image, padding, 'reflect')
+    return new_image
+
+
+def remove_padding(image, ori_height, ori_width):
+    new_image = image[0:ori_height, 0:ori_width, :]
+    return new_image
+
+
 def get_vgg_activation(layer_name, width, height):
     tensor = K.placeholder((1, height, width, 3))
     model = vgg16.VGG16(input_tensor=tensor, weights='imagenet', include_top=False)

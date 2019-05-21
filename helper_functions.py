@@ -8,7 +8,7 @@ from keras.applications import vgg16
 from utils import process_image, expand_input, get_vgg_activation, dummy_loss, zero_loss, deprocess_image
 from utils import get_padding, remove_padding
 from models import get_temp_view_model, get_training_model, get_evaluate_model
-from scipy.misc import imsave
+from imageio import imwrite
 
 import time
 import datetime
@@ -309,4 +309,4 @@ def predict(options, img_read_path, img_write_path):
     res = eval_model.predict([content])
     output = deprocess_image(res[0], width, height)
     output = remove_padding(output, ori_height, ori_width)
-    imsave(img_write_path, output)
+    imwrite(img_write_path, output)
